@@ -31,7 +31,7 @@ Linuxで動作します。
 # vi /usr/local/noipddnsclient/bin/noipddnsclient.py
 ```
 ```
-# お名前.comのユーザ名、パスワード
+# No-IPのユーザ名、パスワード
 USERID="1234567890"
 PASSWORD="Passworddayo!"
 
@@ -40,7 +40,6 @@ PASSWORD="Passworddayo!"
 #   FQDN,FQDN,...
 #    (カンマ区切り)
 # -例-
-#   example.com
 #   wwww.example.com
 #   wwww.example.com,blog.example.com,wwww.xxxx.com
 DOMAINLIST="www.example.com,himitsu.example2.com"
@@ -58,9 +57,9 @@ EOF
 
 ## 使い方
 * 上記通り、cronに登録して実行します。
-* ログは/var/log/noipddnsclient.logに出力します。
+* ログは/var/log/noipddnsclient.logに出力します。(何かあった時しか出力しません)
 * IPアドレスの記録と前回更新日時は/var/lib/noipddnsclient.txtに保存しています。
-* LOG_VERBOSE=Trueにすると冗長ログを出力します。
+* LOG_VERBOSE=Trueにすると冗長ログを出力します。（実行ごとの開始終了を出力します）
 
 ## 注意
 * 非公式かつ無償ですので自己責任でご使用ください。いかなる損害が発生しても責任は負いません。
@@ -74,4 +73,3 @@ EOF
 
 ## ライセンス
 MITライセンスです。
-
