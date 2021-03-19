@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #--------------------------------------------------------------------#
-# noipddnsclient.py  Ver. 1.0.0(2021/03/17)                          #
+# noipddnsclient.py  Ver. 1.1.0(2021/03/20)                          #
 #   No-IP ダイナミックDNS クライアント(複数ドメイン対応版)           #
 #     Copyright (C) 2021 chidipy  http://chidipy.jpn.com/            #
 #--------------------------------------------------------------------#
@@ -34,7 +34,7 @@ PATH_PRECHANGE="/var/lib/noipddnsclient.txt"
 # 冗長ログ出力(False/True)
 LOG_VERBOSE=False
 
-# [簡易実装]メール通知…何かあればメール通知します
+#--[簡易実装]メール通知----------
 # メールサーバホスト名（空値の場合、メール通知は無効）
 MAIL_HOST=""
 # メールサーバポート番号
@@ -56,8 +56,6 @@ LOGLEVEL_INFO="INFO"
 LOGLEVEL_WARN="WARN"
 LOGLEVEL_ERROR="ERROR"
 
-SUCCESSMSG="000 COMMAND SUCCESSFUL"
-
 #--------------------------------------------------------------------#
 # モジュール読み込み                                                 #
 #--------------------------------------------------------------------#
@@ -70,14 +68,29 @@ from datetime import datetime,date,timedelta
 import socket
 import ssl
 import urllib.request
+import smtplib
+from email.mime.text import MIMEText
+from email.utils import formatdate
+
+#--------------------------------------------------------------------#
+# グローバル変数                                                     #
+#--------------------------------------------------------------------#
+messagestore=None
 
 #--------------------------------------------------------------------#
 # 関数                                                               #
 #--------------------------------------------------------------------#
 def write_log(msg,level="DEBUG"):
     flag_writable=True
+    global messagestore
     # メッセージ組み立て
     output="{0} {1:<5} {2}".format(str(datetime.now()) ,level,msg)
+    
+    if messagestore == None:
+        messagestore = output
+    else:
+        messagestore = messagestore + "\n" + output
+    
     if os.access(os.path.dirname(PATH_LOG),os.W_OK) == False:
         flag_writable=False
     if os.path.exists(PATH_LOG)==True:
@@ -101,10 +114,6 @@ def write_log(msg,level="DEBUG"):
 def send_mail(host,port,user,password,from_address,to_address,subject,message):
     if host == "" :
         return True
-    
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.utils import formatdate
     
     msg = MIMEText(message)
     msg['Subject'] = subject
@@ -134,11 +143,11 @@ def get_globalip_inetip():
         response=requests.get('http://inet-ip.info/ip')
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
-        errmsg = "Faild to get global ip address. reason:" + str(exc_value)
+        errmsg = "Failed to get global ip address. reason:" + str(exc_value)
         return gip,errmsg
     
     if response.status_code != 200 :
-        errmsg = "Faild to get global ip address. status_code:" + str(response.status_code)
+        errmsg = "Failed to get global ip address. status_code:" + str(response.status_code)
         return gip,errmsg
     
     gip=response.text
@@ -153,11 +162,11 @@ def get_globalip_dyndns():
         response=requests.get('http://checkip.dyndns.com/')
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
-        errmsg = "Faild to get global ip address. reason:" + str(exc_value)
+        errmsg = "Failed to get global ip address. reason:" + str(exc_value)
         return gip,errmsg
     
     if response.status_code != 200 :
-        errmsg = "Faild to get global ip address. status_code:" + str(response.status_code)
+        errmsg = "Failed to get global ip address. status_code:" + str(response.status_code)
         return gip,errmsg
     
     html=response.text
@@ -205,7 +214,7 @@ def get_prechange(path_history):
         fh = open(PATH_PRECHANGE,"r",encoding='utf-8')
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
-        errmsg = "Faild to open file. path:{} reason:{}".format(PATH_LOG,str(exc_value))
+        errmsg = "Failed to open file. path:{} reason:{}".format(PATH_LOG,str(exc_value))
         return preip,dt_timestamp,errmsg
 
     for getline in fh:
@@ -214,7 +223,7 @@ def get_prechange(path_history):
             pattern=re.compile(regexp)
         except:
             (exc_type,exc_value,exc_traceback)=sys.exc_info()
-            errmsg = "Faild to regexp compile. regexp:{} reason:{}".format(regexp,str(exc_value))
+            errmsg = "Failed to regexp compile. regexp:{} reason:{}".format(regexp,str(exc_value))
             return preip,dt_timestamp,errmsg
 
         match=pattern.search(getline)
@@ -245,7 +254,7 @@ def update_ip(ip,fqdn,userid,password):
     url="https://{}:{}@dynupdate.no-ip.com/nic/update?hostname={}&myip={}".format(userid,password,fqdn,ip)
     response = requests.get(url)
     if response.status_code == 401 :
-        errmsg = "Faild to auth"
+        errmsg = "Failed to auth"
         return errmsg
     elif response.status_code != 200 :
         errmsg = "response code :{}".format(response.status_code)
@@ -259,13 +268,13 @@ def update_ip(ip,fqdn,userid,password):
         pattern=re.compile(regexp)
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
-        errmsg = "Faild to regexp compile. regexp:{} reason:{}".format(regexp,str(exc_value))
+        errmsg = "Failed to regexp compile. regexp:{} reason:{}".format(regexp,str(exc_value))
         return errmsg
 
     match=pattern.search(html)
     if match != None :
         #ドメイン間違い
-        errmsg = "Failed to update. nohost:{}".format(domainname)
+        errmsg = "Failed to update. nohost:{}".format(fqdn)
         return errmsg
 
     regexp=r'^(good|nochg) '
@@ -273,7 +282,7 @@ def update_ip(ip,fqdn,userid,password):
         pattern=re.compile(regexp)
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
-        errmsg = "Faild to regexp compile. regexp:{} reason:{}".format(regexp,str(exc_value))
+        errmsg = "Failed to regexp compile. regexp:{} reason:{}".format(regexp,str(exc_value))
         return errmsg
 
     # 未定義エラーチェック
@@ -296,11 +305,9 @@ def update_ip_all(ip_new,fqdnlist,userid,password):
         errmsg = update_ip(ip_new,strfqdn,userid,password)
         if errmsg != None :
             write_log(strfqdn + ":" +errmsg,LOGLEVEL_WARN)
-            send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,strfqdn + ":" +errmsg)
         else:
             flag_success = True
             write_log("{}: The IP address update was successful. ip address:{}".format(strfqdn,ip_new),LOGLEVEL_INFO)
-            send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,"{}: The IP address update was successful. ip address:{}".format(strfqdn,ip_new))
 
     if flag_success ==  False :
         write_log("",LOGLEVEL_ERROR)
@@ -330,7 +337,7 @@ def update_prechange(path_history,gip):
         fh = open(path_history,"w",encoding='utf-8')
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
-        errmsg = "Faild to open file. path:{} reason:{}".format(path_history,str(exc_value))
+        errmsg = "Failed to open file. path:{} reason:{}".format(path_history,str(exc_value))
         return errmsg
     
     try:
@@ -338,7 +345,7 @@ def update_prechange(path_history,gip):
         fh.close()
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
-        errmsg = "Faild to write file. path:{} reason:{}".format(path_history,str(exc_value))
+        errmsg = "Failed to write file. path:{} reason:{}".format(path_history,str(exc_value))
         return errmsg
     
     return errmsg
@@ -381,14 +388,14 @@ def main():
     if gip == None or gip == "" :
         # ここだけ子関数でログ出力した
         write_log("Failed to get global ip address.",LOGLEVEL_ERROR)
-        send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,"Failed to get global ip address.")
+        if messagestore != None : send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,messagestore)
         return
 
     # 変更履歴ファイルから前回のIPアドレスと変更時刻を取得
     (preip,dt_prechange,errmsg)=get_prechange(PATH_PRECHANGE)
     if errmsg != None:
         write_log(errmsg,LOGLEVEL_ERROR)
-        send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,errmsg)
+        if messagestore != None : send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,messagestore)
         return
 
     # 前回変更時刻の指定日数後を計算
@@ -421,11 +428,14 @@ def main():
             errmsg=update_prechange(PATH_PRECHANGE,gip)
             if errmsg != None:
                 write_log(errmsg,LOGLEVEL_ERROR)
+                if messagestore != None : send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,messagestore)
                 return
     else:
         if LOG_VERBOSE == True : write_log('No Update',LOGLEVEL_INFO)
-
+    
     if LOG_VERBOSE == True : write_log('End',LOGLEVEL_INFO)
+    
+    if messagestore != None : send_mail(MAIL_HOST,MAIL_PORT,MAIL_USER,MAIL_PASSWORD,MAIL_FROM,MAIL_TO,MAIL_SUBJECT,messagestore)
 
 if __name__ == "__main__":
     main()
