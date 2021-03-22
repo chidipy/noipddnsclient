@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #--------------------------------------------------------------------#
-# noipddnsclient.py  Ver. 1.1.0(2021/03/20)                          #
+# noipddnsclient.py  Ver. 1.1.1(2021/03/20)                          #
 #   No-IP ダイナミックDNS クライアント(複数ドメイン対応版)           #
 #     Copyright (C) 2021 chidipy  http://chidipy.jpn.com/            #
 #--------------------------------------------------------------------#
@@ -23,7 +23,7 @@ PASSWORD=""
 FQDNLIST=""
 
 # 強制的にDDNSを更新する日数間隔（無効にする場合は大きい数字にしてください）
-DAYS_FORCE_UPDATE=1
+DAYS_FORCE_UPDATE=7
 
 # ログの出力パス
 PATH_LOG="/var/log/noipddnsclient.log"
@@ -414,7 +414,7 @@ def main():
     # または前回変更時刻から指定日数経過してる
     # または、DNSのIPアドレスが現在のIPアドレスが異なる場合は
     # IPアドレスを更新しに行く
-    if dt_now > dt_due :
+    if dt_now >= dt_due :
         flag_update = True
         msg="expiration date. due:{}".format(str(dt_due))
         write_log(msg,LOGLEVEL_INFO)
