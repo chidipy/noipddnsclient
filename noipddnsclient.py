@@ -1,8 +1,9 @@
+
 #!/usr/bin/python3 -u
 # -*- coding: utf-8 -*-
 
 #--------------------------------------------------------------------#
-# noipddnsclient.py  Ver. 1.1.1(2021/03/20)                          #
+# noipddnsclient.py  Ver. 1.1.2(2021/12/09)                          #
 #   No-IP ダイナミックDNS クライアント(複数ドメイン対応版)           #
 #     Copyright (C) 2021 chidipy  http://chidipy.jpn.com/            #
 #--------------------------------------------------------------------#
@@ -252,7 +253,13 @@ def update_ip(ip,fqdn,userid,password):
 
 
     url="https://{}:{}@dynupdate.no-ip.com/nic/update?hostname={}&myip={}".format(userid,password,fqdn,ip)
-    response = requests.get(url)
+    try:
+        response = requests.get(url)
+    except:
+        (exc_type,exc_value,exc_traceback)=sys.exc_info()
+        errmsg = "Failed to communicate update. reason:" + str(exc_value)
+        return errmsg
+    
     if response.status_code == 401 :
         errmsg = "Failed to auth"
         return errmsg
