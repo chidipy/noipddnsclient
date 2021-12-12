@@ -3,7 +3,7 @@
 # -*- coding: utf-8 -*-
 
 #--------------------------------------------------------------------#
-# noipddnsclient.py  Ver. 1.1.2(2021/12/09)                          #
+# noipddnsclient.py  Ver. 1.1.3(2021/12/12)                          #
 #   No-IP ダイナミックDNS クライアント(複数ドメイン対応版)           #
 #     Copyright (C) 2021 chidipy  http://chidipy.jpn.com/            #
 #--------------------------------------------------------------------#
@@ -406,7 +406,7 @@ def main():
         return
 
     # 前回変更時刻の指定日数後を計算
-    dt_due = dt_prechange + timedelta(days=DAYS_FORCE_UPDATE)
+    dt_due = dt_prechange.replace(second=0) + timedelta(days=DAYS_FORCE_UPDATE)
 
     # 現在の時刻を取得
     dt_now = datetime.now()
