@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #--------------------------------------------------------------------#
-# noipddnsclient.py  Ver. 1.1.4(2025/8/31)                          #
+# noipddnsclient.py  Ver. 1.2.0(2026/4/30)                          #
 #   No-IP ダイナミックDNS クライアント(複数ドメイン対応版)           #
 #     Copyright (C) 2021 chidipy  http://chidipy.jpn.com/            #
 #--------------------------------------------------------------------#
@@ -33,6 +33,9 @@ PATH_PRECHANGE="/var/lib/noipddnsclient.txt"
 
 # 冗長ログ出力(False/True)
 LOG_VERBOSE=False
+
+# HTTPタイムアウト(秒)
+TIMEOUT_HTTP=10
 
 #--[簡易実装]メール通知----------
 # メールサーバホスト名（空値の場合、メール通知は無効）
@@ -102,14 +105,24 @@ def write_log(msg,level="DEBUG"):
     
     try:
         file_output = open(PATH_LOG,"a",encoding='utf-8')
-        fcntl.flock(file_output,fcntl.LOCK_SH)
+    except:
+        # open error
+        (exc_type,exc_value,exc_traceback)=sys.exc_info()
+        print(output)
+        print("Failed to write log. path:{} reason:{}".format(PATH_LOG,str(exc_value)))
+        return
+        
+    try:
+        fcntl.flock(file_output,fcntl.LOCK_EX)
         file_output.write(output+"\n")
-        fcntl.flock(file_output,fcntl.LOCK_UN)
-        file_output.close()
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
         print(output)
         print("Failed to write log. path:{} reason:{}".format(PATH_LOG,str(exc_value)))
+    finally:
+        # 途中で例外が起きても確実にロックを解除
+        fcntl.flock(file_output,fcntl.LOCK_UN)
+        file_output.close()
         
 def send_mail(host,port,user,password,from_address,to_address,subject,message):
     if host == "" :
@@ -140,7 +153,7 @@ def get_globalip_inetip():
     errmsg=None
     
     try:
-        response=requests.get('http://inet-ip.info/ip')
+        response=requests.get('http://inet-ip.info/ip',timeout=TIMEOUT_HTTP)
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
         errmsg = "Failed to get global ip address. reason:" + str(exc_value)
@@ -159,7 +172,7 @@ def get_globalip_dyndns():
     errmsg=None
     
     try:
-        response=requests.get('http://checkip.dyndns.com/')
+        response=requests.get('http://checkip.dyndns.com/',timeout=TIMEOUT_HTTP)
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
         errmsg = "Failed to get global ip address. reason:" + str(exc_value)
@@ -251,9 +264,14 @@ def update_ip(ip,fqdn,userid,password):
     # http://username:password@dynupdate.no-ip.com/nic/update?hostname=mytest.example.com&myip=192.0.2.2
 
 
-    url="https://{}:{}@dynupdate.no-ip.com/nic/update?hostname={}&myip={}".format(userid,password,fqdn,ip)
+    #url="https://{}:{}@dynupdate.no-ip.com/nic/update?hostname={}&myip={}".format(userid,password,fqdn,ip)
+    url = "https://dynupdate.no-ip.com/nic/update"
+    params = {"hostname": fqdn, "myip": ip}
+    
     try:
-        response = requests.get(url)
+        #response = requests.get(url)
+        # timeoutの明示的な設定と、auth引数による安全なBasic認証
+        response = requests.get(url, params=params, auth=(userid, password), timeout=TIMEOUT_HTTP)
     except:
         (exc_type,exc_value,exc_traceback)=sys.exc_info()
         errmsg = "Failed to communicate update. reason:" + str(exc_value)
